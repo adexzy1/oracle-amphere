@@ -1,0 +1,54 @@
+name: Oracle Ampere Hunter
+
+on:
+  schedule:
+    - cron: "*/5 * * * *" # Runs every 5 minutes for faster hunting
+  workflow_dispatch:
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Install OCI CLI
+        run: |
+          pip install"oci-cli"
+
+      - name: Configure OCI
+        run: |
+          mkdir -p ~/.oci
+          echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/key.pem
+          chmod 600 ~/.oci/key.pem
+
+          cat <<EOF > ~/.oci/config
+          [DEFAULT]
+          user=${{ secrets.OCI_USER }}
+          fingerprint=${{ secrets.OCI_FINGERPRINT }}
+          key_file=~/.oci/key.pem
+          tenancy=${{ secrets.OCI_TENANCY }}
+          region=${{ secrets.OCI_REGION }}
+          EOF
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: terraform
+        env:
+          TF_VAR_region: ${{ secrets.OCI_REGION }}
+          TF_VAR_compartment_ocid: ${{ secrets.TF_VAR_COMPARTMENT_OCID }}
+          TF_VAR_availability_domain: ${{ secrets.TF_VAR_AVAILABILITY_DOMAIN }}
+          TF_VAR_subnet_id: ${{ secrets.TF_VAR_SUBNET_ID }}
+          TF_VAR_image_id: ${{ secrets.TF_VAR_IMAGE_ID }}
+          TF_VAR_ssh_public_key: ${{ secrets.TF_VAR_SSH_PUBLIC_KEY }}
+        run: |
+          # The exit code is caught here because we expect it to fail often due to Oracle Cloud being out of capacity.
+          # When capacity frees up, this command will succeed automatically.
+          terraform apply -auto-approve || echo "Terraform apply failed. Likely out of host capacity."
