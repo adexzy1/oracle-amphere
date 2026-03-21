@@ -31,11 +31,11 @@ variable "ssh_public_key" {
 variable "ocpus" {
   description = "Number of OCPUs to hunt for"
   type        = number
-  default     = 4
+  default     = 2
 }
 
 variable "memory_in_gbs" {
   description = "Amount of Memory in GBs to hunt for"
   type        = number
-  default     = 24
+  default     = 12
 }
